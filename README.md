@@ -1,4 +1,4 @@
-# my arduino sketchbook folder v. 0.4
+# my arduino sketchbook folder v. 0.5
 ============================
 
 I love open-source so this project is simply my Arduino sketchbook folder :)
