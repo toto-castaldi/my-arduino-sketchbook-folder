@@ -15,7 +15,3 @@ I love open-source so this project is simply my Arduino sketchbook folder :)
 
 
 Branches follows "Git Flow" conventions (https://github.com/nvie/gitflow)
-
-## Projects
-
-- implementation of Arduino starter Kit projects http://arduino.cc/en/Main/ArduinoStarterKit
