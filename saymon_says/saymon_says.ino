@@ -1,6 +1,5 @@
 //saymon says http://it.wikipedia.org/wiki/Simon_(gioco)
 #include "pitches.h"
-
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -13,6 +12,7 @@
 #define OLED_RESET 13
 Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
 
+
 const int redLed = 7;
 const int greenLed = 6;
 const int yellowLed = 5;
@@ -20,50 +20,58 @@ const int blueLed = 4;
 
 const int tonePin = 8;
 
-const int redButton = 3;
-const int greenButton = 2;
-const int yellowButton = 1;
-const int blueButton = 0;
+const int redButton = A0;
+const int greenButton = A1;
+const int yellowButton = A2;
+const int blueButton = A3;
 const int maxLength = 100; //max level
 const int statePrepare = 0;
 const int statePlay = 1;
 const int stateEnd = 2;
+const int stateNewLevel = 3;
 
-int lastRedButtonValue;
-int sequenceLength;
+int level;
 int state; 
 int sequence[maxLength];
 int currentPlayingSeqIndex;
 
 void setup() {
   Serial.begin(9600);
-  
+
   display.begin(SSD1306_SWITCHCAPVCC);
+
   pinMode(redLed, OUTPUT);
   pinMode(greenLed, OUTPUT);
   pinMode(yellowLed, OUTPUT);
   pinMode(blueLed, OUTPUT);
-  
-  pinMode(redButton, INPUT);
-  digitalWrite(redButton, LOW);
-  pinMode(greenButton, INPUT);
-  digitalWrite(greenButton, LOW);
-  pinMode(yellowButton, INPUT);
-  digitalWrite(yellowButton, LOW);
-  pinMode(blueButton, INPUT);
-  digitalWrite(blueButton, LOW);
-  
-  sequenceLength = 1;
-  state = statePrepare;
+    
+  level = 0;
+  state = stateNewLevel;
   
   randomSeed(analogRead(A5));
+  
 }
 
 void loop() {
   
+  if (state == stateNewLevel) {
+    level ++;
+    String a = "livello ";
+     a += level;
+    displayWrite(a);
+    delay(2000);
+    state = statePrepare;
+  }
+  
+  if (state == stateEnd) {
+    String a = "punti ";
+    a += level;
+    displayWrite(a);
+  }
+
   if (state == statePrepare) {
     //set
-    for (int i = 0; i < sequenceLength; i++) {
+    for (int i = level - 1 ; i < level; i++) {
       int button = random(4);
       if (button == 0) sequence[i] = redButton;
       if (button == 1) sequence[i] = greenButton;
@@ -72,8 +80,8 @@ void loop() {
     }
     
     //play
-    diplayWrite("memorizza");
-    for (int i = 0; i < sequenceLength; i++) {
+    displayWrite("memorizza");
+    for (int i = 0; i < level; i++) {
     int button = sequence[i];
       delay(300);
       digitalWrite(button, HIGH);
@@ -88,13 +96,20 @@ void loop() {
       
     }
     state = statePlay;
-    diplayWrite("ripeti");
+    displayWrite("ripeti");
     currentPlayingSeqIndex = 0;
     
   } 
   
-
-  if (pressed(redButton) && (state == statePlay)) {
+  
+  /*
+  Serial.print(analogRead(redButton));
+  Serial.print(analogRead(greenButton));
+  Serial.print(analogRead(yellowButton));
+  Serial.println(analogRead(blueButton));
+  */
+  
+    if (pressed(redButton) && (state == statePlay)) {
      checkPressing(redLed, NOTE_C4, redButton); 
   } else if (pressed(greenButton) && (state == statePlay)) {
     checkPressing(greenLed, NOTE_D4, greenButton);
@@ -103,18 +118,20 @@ void loop() {
   } else if (pressed(blueButton) && (state == statePlay)) {
     checkPressing(blueLed, NOTE_F4, blueButton);
   }
-   
-  
+
 }
 
 void checkPressing(int led, unsigned int note, int button) {
        digitalWrite(led, HIGH);
        tone(tonePin, note);
        if (sequence[currentPlayingSeqIndex] == button) {
-         diplayWrite("OK !");
-         currentPlayingSeqIndex ++;     
+         displayWrite("OK !");
+         currentPlayingSeqIndex ++;
+         if (currentPlayingSeqIndex >= level) {
+           state = stateNewLevel;
+         } 
        } else {
-         diplayWrite("sbagliato");
+         displayWrite("sbagliato");
          state = stateEnd;
        }
       delay(1000);
@@ -123,6 +140,11 @@ void checkPressing(int led, unsigned int note, int button) {
     
 }
 
+boolean pressed(int button) {
+  return analogRead(button) > 900;
+}
+
+
 void allLedOff() {
   digitalWrite(redLed, LOW);
   digitalWrite(greenLed, LOW);
@@ -130,19 +152,13 @@ void allLedOff() {
   digitalWrite(blueLed, LOW);
 }
 
-boolean pressed(int button) {
-  delay(10);
-  return digitalRead(button) == HIGH;
-}
 
-
-void diplayWrite(char* text) {
+void displayWrite(String text) {
   display.clearDisplay();
-  display.setTextSize(4);
+  display.setTextSize(2);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   display.print(text);
   display.display();
 }
-
 
