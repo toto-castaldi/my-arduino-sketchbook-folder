@@ -29,6 +29,7 @@ const int statePrepare = 0;
 const int statePlay = 1;
 const int stateEnd = 2;
 const int stateNewLevel = 3;
+const int statePressedOk = 4;
 
 int level;
 int state; 
@@ -49,6 +50,11 @@ void setup() {
   state = stateNewLevel;
   
   randomSeed(analogRead(A5));
+  
+  //initial set
+  for (int i = 0 ; i < level; i++) {
+    sequence[i] = redButton;
+  }
   
 }
 
@@ -78,39 +84,39 @@ void loop() {
       if (button == 2) sequence[i] = yellowButton;
       if (button == 3) sequence[i] = blueButton;
     }
-    
+      
     //play
     displayWrite("memorizza");
     for (int i = 0; i < level; i++) {
-    int button = sequence[i];
-      delay(300);
-      digitalWrite(button, HIGH);
+      int button = sequence[i];
       if (button == redButton) { tone(tonePin, NOTE_C4); digitalWrite(redLed, HIGH); } 
       if (button == greenButton) { tone(tonePin, NOTE_D4); digitalWrite(greenLed, HIGH); } 
       if (button == yellowButton) { tone(tonePin, NOTE_E4); digitalWrite(yellowLed, HIGH); } 
       if (button == blueButton) { tone(tonePin, NOTE_F4); digitalWrite(blueLed, HIGH); } 
       
-      delay(1000);
+      int maxMapLevel = 16;
+      int mapLevel = level;
+      if (mapLevel > maxMapLevel) {
+        mapLevel = maxMapLevel;
+      }
+      int delayMemorization = 500 + map(mapLevel, 1, maxMapLevel, 800, 0);
+      
+      //Serial.println(delayMemorization);
+      
+      delay(delayMemorization);
       noTone(tonePin);
       allLedOff();
+      delay(50); //to see two or more equal color in sequence
       
     }
     state = statePlay;
     displayWrite("ripeti");
     currentPlayingSeqIndex = 0;
     
-  } 
+  }  
   
-  
-  /*
-  Serial.print(analogRead(redButton));
-  Serial.print(analogRead(greenButton));
-  Serial.print(analogRead(yellowButton));
-  Serial.println(analogRead(blueButton));
-  */
-  
-    if (pressed(redButton) && (state == statePlay)) {
-     checkPressing(redLed, NOTE_C4, redButton); 
+  if (pressed(redButton) && (state == statePlay)) {
+    checkPressing(redLed, NOTE_C4, redButton); 
   } else if (pressed(greenButton) && (state == statePlay)) {
     checkPressing(greenLed, NOTE_D4, greenButton);
   } else if (pressed(yellowButton) && (state == statePlay)) {
@@ -122,9 +128,11 @@ void loop() {
 }
 
 void checkPressing(int led, unsigned int note, int button) {
-       digitalWrite(led, HIGH);
-       tone(tonePin, note);
+        digitalWrite(led, HIGH);
+         tone(tonePin, note);
+       
        if (sequence[currentPlayingSeqIndex] == button) {
+        
          displayWrite("OK !");
          currentPlayingSeqIndex ++;
          if (currentPlayingSeqIndex >= level) {
@@ -134,10 +142,10 @@ void checkPressing(int led, unsigned int note, int button) {
          displayWrite("sbagliato");
          state = stateEnd;
        }
-      delay(1000);
-      noTone(tonePin);
-      allLedOff();
-    
+                delay(1000);
+          noTone(tonePin);
+          allLedOff();
+
 }
 
 boolean pressed(int button) {
