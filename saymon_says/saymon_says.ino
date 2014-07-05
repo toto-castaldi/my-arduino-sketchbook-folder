@@ -31,10 +31,17 @@ const int stateEnd = 2;
 const int stateNewLevel = 3;
 const int statePressedOk = 4;
 
+const int buttonUnknow = 0;
+const int buttonDown = 1;
+const int buttonPressed = 3;
+
+
 int level;
 int state; 
 int sequence[maxLength];
 int currentPlayingSeqIndex;
+int stateRedButton;
+int buttonStates[4] = { buttonUnknow, buttonUnknow, buttonUnknow, buttonUnknow };
 
 void setup() {
   Serial.begin(9600);
@@ -56,9 +63,16 @@ void setup() {
     sequence[i] = redButton;
   }
   
+  stateRedButton = 0;
+  
 }
 
 void loop() {
+  
+    computeButtonStates(0, redButton, redLed);  
+    computeButtonStates(1, greenButton, greenLed);  
+    computeButtonStates(2, yellowButton, yello);  
+    computeButtonStates(3, blueButton);  
   
   if (state == stateNewLevel) {
     level ++;
@@ -113,8 +127,21 @@ void loop() {
     displayWrite("ripeti");
     currentPlayingSeqIndex = 0;
     
-  }  
+  }
   
+  if (state == statePlay) {
+    
+    
+    
+      
+  //    stateRedButton = analogRead(A0);
+//      stateRedButton = analogRead(A0);
+  //    stateRedButton = analogRead(A0);
+    //  stateRedButton = analogRead(A0);
+  }
+  
+//  Serial.println(analogRead(A0));
+  /*
   if (pressed(redButton) && (state == statePlay)) {
     checkPressing(redLed, NOTE_C4, redButton); 
   } else if (pressed(greenButton) && (state == statePlay)) {
@@ -124,7 +151,26 @@ void loop() {
   } else if (pressed(blueButton) && (state == statePlay)) {
     checkPressing(blueLed, NOTE_F4, blueButton);
   }
+  */
 
+}
+
+void computeButtonStates(int index, int button, int led) {
+      int tmpVal = analogRead(button);
+      delay(20);
+      if (tmpVal > 900) {
+        buttonStates[index] = buttonDown;
+        digitalWrite(led, HIGH);
+      } else {
+        if (buttonStates[index] == buttonDown) {
+          //Serial.print(index);
+          //Serial.println("pressed");
+          buttonStates[index] = buttonPressed;
+          digitalWrite(led, LOW);
+        }
+      }
+
+  
 }
 
 void checkPressing(int led, unsigned int note, int button) {
@@ -142,7 +188,7 @@ void checkPressing(int led, unsigned int note, int button) {
          displayWrite("sbagliato");
          state = stateEnd;
        }
-                delay(1000);
+          delay(1000);
           noTone(tonePin);
           allLedOff();
 
