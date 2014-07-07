@@ -27,9 +27,9 @@ const int blueButton = A3;
 const int maxLength = 100; //max level
 const int statePrepare = 0;
 const int statePlay = 1;
-const int stateEnd = 2;
+const int stateGameOver = 2;
 const int stateNewLevel = 3;
-const int statePressedOk = 4;
+const int stateEnd = 4;
 
 const int buttonUnknow = 0;
 const int buttonDown = 1;
@@ -40,14 +40,14 @@ int level;
 int state; 
 int sequence[maxLength];
 int currentPlayingSeqIndex;
-int stateRedButton;
-int buttonStates[4] = { buttonUnknow, buttonUnknow, buttonUnknow, buttonUnknow };
+int buttonStates[4]; 
+unsigned long buttonFeedBackStartMillis;
 
 void setup() {
   Serial.begin(9600);
 
   display.begin(SSD1306_SWITCHCAPVCC);
-
+  
   pinMode(redLed, OUTPUT);
   pinMode(greenLed, OUTPUT);
   pinMode(yellowLed, OUTPUT);
@@ -63,32 +63,22 @@ void setup() {
     sequence[i] = redButton;
   }
   
-  stateRedButton = 0;
+  for (int i = 0; i < 4; i++ ) {
+    buttonStates[i] = buttonUnknow;
+  }
   
+  buttonFeedBackStartMillis = 0;
 }
 
 void loop() {
-  
-    computeButtonStates(0, redButton, redLed);  
-    computeButtonStates(1, greenButton, greenLed);  
-    computeButtonStates(2, yellowButton, yello);  
-    computeButtonStates(3, blueButton);  
-  
+ 
   if (state == stateNewLevel) {
     level ++;
-    String a = "livello ";
-     a += level;
-    displayWrite(a);
+    displayStringInt("livello ", level);
     delay(2000);
     state = statePrepare;
   }
   
-  if (state == stateEnd) {
-    String a = "punti ";
-    a += level;
-    displayWrite(a);
-  }
-
   if (state == statePrepare) {
     //set
     for (int i = level - 1 ; i < level; i++) {
@@ -98,9 +88,9 @@ void loop() {
       if (button == 2) sequence[i] = yellowButton;
       if (button == 3) sequence[i] = blueButton;
     }
-      
+    
     //play
-    displayWrite("memorizza");
+    displayString("memorizza");
     for (int i = 0; i < level; i++) {
       int button = sequence[i];
       if (button == redButton) { tone(tonePin, NOTE_C4); digitalWrite(redLed, HIGH); } 
@@ -114,9 +104,7 @@ void loop() {
         mapLevel = maxMapLevel;
       }
       int delayMemorization = 500 + map(mapLevel, 1, maxMapLevel, 800, 0);
-      
-      //Serial.println(delayMemorization);
-      
+         
       delay(delayMemorization);
       noTone(tonePin);
       allLedOff();
@@ -124,80 +112,79 @@ void loop() {
       
     }
     state = statePlay;
-    displayWrite("ripeti");
+    displayString("ripeti");
     currentPlayingSeqIndex = 0;
     
   }
   
-  if (state == statePlay) {
+   if (state == statePlay) {
+   //if (state == 100) {
+     
+      if (buttonStates[0] == buttonPressed) {
+        checkPressing(redButton);
+        buttonStates[0] = buttonUnknow;
+      } else if (buttonStates[1] == buttonPressed) {
+        checkPressing(greenButton);
+        buttonStates[1] = buttonUnknow;
+      } else if (buttonStates[2] == buttonPressed) {
+        checkPressing(yellowButton);
+        buttonStates[2] = buttonUnknow;
+      } else if (buttonStates[3] == buttonPressed) {
+        checkPressing(blueButton);
+        buttonStates[3] = buttonUnknow;
+      } 
+  }
+  
+  if (state == stateGameOver) {
+    displayString("sbagliato");
+    delay(1000);
+    displayStringInt("punti ", level);
+    state = stateEnd;
+  }
+  
+       //manage pressing
+      computeButtonState(0, redButton, redLed, NOTE_C4);  
+      computeButtonState(1, greenButton, greenLed, NOTE_D4);  
+      computeButtonState(2, yellowButton, yellowLed, NOTE_E4);  
+      computeButtonState(3, blueButton, blueLed, NOTE_F4);
     
-    
-    
+      pressingFeedback(false);
       
-  //    stateRedButton = analogRead(A0);
-//      stateRedButton = analogRead(A0);
-  //    stateRedButton = analogRead(A0);
-    //  stateRedButton = analogRead(A0);
-  }
-  
-//  Serial.println(analogRead(A0));
-  /*
-  if (pressed(redButton) && (state == statePlay)) {
-    checkPressing(redLed, NOTE_C4, redButton); 
-  } else if (pressed(greenButton) && (state == statePlay)) {
-    checkPressing(greenLed, NOTE_D4, greenButton);
-  } else if (pressed(yellowButton) && (state == statePlay)) {
-    checkPressing(yellowLed, NOTE_E4, yellowButton);
-  } else if (pressed(blueButton) && (state == statePlay)) {
-    checkPressing(blueLed, NOTE_F4, blueButton);
-  }
-  */
-
 }
 
-void computeButtonStates(int index, int button, int led) {
-      int tmpVal = analogRead(button);
-      delay(20);
-      if (tmpVal > 900) {
-        buttonStates[index] = buttonDown;
-        digitalWrite(led, HIGH);
-      } else {
-        if (buttonStates[index] == buttonDown) {
-          //Serial.print(index);
-          //Serial.println("pressed");
-          buttonStates[index] = buttonPressed;
-          digitalWrite(led, LOW);
-        }
+void pressingFeedback(boolean waitForButtonEnd) {
+    if (waitForButtonEnd && buttonFeedBackStartMillis > 0 && millis() - buttonFeedBackStartMillis < 1000) {
+      delay(1000 - (millis() - buttonFeedBackStartMillis));
+      noTone(tonePin);
+        buttonFeedBackStartMillis = 0;
+        //allLedOff();
+    } else {
+      if (buttonFeedBackStartMillis > 0 && millis() > 1000 + buttonFeedBackStartMillis) {
+        noTone(tonePin);
+        buttonFeedBackStartMillis = 0;
+        //allLedOff();
       }
-
-  
+    }
 }
 
-void checkPressing(int led, unsigned int note, int button) {
-        digitalWrite(led, HIGH);
-         tone(tonePin, note);
-       
-       if (sequence[currentPlayingSeqIndex] == button) {
-        
-         displayWrite("OK !");
-         currentPlayingSeqIndex ++;
-         if (currentPlayingSeqIndex >= level) {
-           state = stateNewLevel;
-         } 
-       } else {
-         displayWrite("sbagliato");
-         state = stateEnd;
-       }
-          delay(1000);
-          noTone(tonePin);
-          allLedOff();
-
+void displayStringInt(char * str, int i) {
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(0,0);
+    display.clearDisplay();
+    display.print(str);
+    display.print(i);
+    display.display();
 }
 
-boolean pressed(int button) {
-  return analogRead(button) > 900;
+void displayString(char * str) {
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.clearDisplay();
+  display.println(str);
+  display.display();
 }
-
 
 void allLedOff() {
   digitalWrite(redLed, LOW);
@@ -207,12 +194,34 @@ void allLedOff() {
 }
 
 
-void displayWrite(String text) {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setCursor(0,0);
-  display.print(text);
-  display.display();
+void computeButtonState(int index, int button, int led, int note) {
+      int tmpVal = analogRead(button);
+      delay(20);
+      if (tmpVal > 900) {
+        allLedOff();
+        buttonStates[index] = buttonDown;
+        digitalWrite(led, HIGH);
+        tone(tonePin, note);
+        buttonFeedBackStartMillis = millis();
+      } else {
+        if (buttonStates[index] == buttonDown) {
+          buttonStates[index] = buttonPressed;
+          allLedOff();
+        }
+      }  
 }
 
+
+void checkPressing(int button) {
+  if (sequence[currentPlayingSeqIndex] == button) {
+    currentPlayingSeqIndex ++;
+    if (currentPlayingSeqIndex >= level) {
+      state = stateNewLevel;
+      pressingFeedback(true);
+    }
+  } else {
+    state = stateGameOver;
+    pressingFeedback(true);
+  }
+  
+}
