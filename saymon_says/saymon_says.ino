@@ -5,11 +5,11 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#define OLED_MOSI   9
-#define OLED_CLK   10
+#define OLED_MOSI  13
+#define OLED_CLK   12
 #define OLED_DC    11
-#define OLED_CS    12
-#define OLED_RESET 13
+#define OLED_CS    9
+#define OLED_RESET 10
 Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
 
 
@@ -18,7 +18,7 @@ const int greenLed = 6;
 const int yellowLed = 5;
 const int blueLed = 4;
 
-const int tonePin = 8;
+const int tonePin = 2;
 
 const int redButton = A0;
 const int greenButton = A1;
