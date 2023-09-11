@@ -40,6 +40,7 @@
 #define NOTE_B3 247
 #define NOTE_C4 262
 #define NOTE_CS4 277
+
 #define NOTE_D4 294
 #define NOTE_DS4 311
 #define NOTE_E4 330
@@ -49,6 +50,7 @@
 #define NOTE_GS4 415
 #define NOTE_A4 440
 #define NOTE_AS4 466
+
 #define NOTE_B4 494
 #define NOTE_C5 523
 #define NOTE_CS5 554
@@ -116,7 +118,6 @@
 #define MODE_BEEGEES 2
 
 int buttonPin = A0;
-int lastAnalogButtonRead = -1;
 
 // Game state variables
 byte gameMode = MODE_MEMORY; //By default, let's play the memory game
@@ -162,9 +163,7 @@ void setup()
 
 void loop()
 {
-  lastAnalogButtonRead = analogRead(buttonPin);
-  //Serial.println(lastAnalogButtonRead);
-
+  
   attractMode(); // Blink lights while waiting for user to press a button
 
   // Indicate the start of game play
@@ -336,20 +335,19 @@ byte wait_for_button(void)
 // Returns a '1' bit in the position corresponding to CHOICE_RED, CHOICE_GREEN, etc.
 byte checkButton(void)
 {
-  int a = analogRead(buttonPin);
-  Serial.println(a);
-  if (a < 100)
+  int lastAnalogButtonRead = analogRead(buttonPin);
+  if (lastAnalogButtonRead < 100)
   { 
     return(CHOICE_NONE);
-  } else if (a < 160)
+  } else if (lastAnalogButtonRead < 160)
   {
     return(CHOICE_GREEN);
   }
-  else if (a < 300)
+  else if (lastAnalogButtonRead < 300)
   {
     return(CHOICE_BLUE);
   }
-  else if (a < 550)
+  else if (lastAnalogButtonRead < 550)
   {
     return(CHOICE_YELLOW);
   }
