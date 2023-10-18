@@ -12,15 +12,16 @@ void loop()
 {
   Serial.println("on");
   Wire.beginTransmission(0x20);
-  Wire.write((byte)0b11111111);
+  Wire.write((byte)0b00000000);
   Wire.endTransmission();
 
   delay(500);
 
   Serial.println("off");
   Wire.beginTransmission(0x20);
-  Wire.write((byte)0b00000000);
+  Wire.write((byte)0b11111111);
   Wire.endTransmission();
 
   delay(500);
+
 }
