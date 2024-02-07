@@ -10,14 +10,35 @@ void setup()
 
 void loop()
 {
-  Serial.println("on");
+  //blue ON
   Wire.beginTransmission(0x20);
-  Wire.write((byte)0b00000000);
+  Wire.write((byte)0b11111110);
   Wire.endTransmission();
 
   delay(500);
 
-  Serial.println("off");
+  //giallo ON
+  Wire.beginTransmission(0x20);
+  Wire.write((byte)0b11111100);
+  Wire.endTransmission();
+
+  delay(500);
+
+  //verde ON
+  Wire.beginTransmission(0x20);
+  Wire.write((byte)0b11111000);
+  Wire.endTransmission();
+
+  delay(500);
+
+  //rosso ON
+  Wire.beginTransmission(0x20);
+  Wire.write((byte)0b11110000);
+  Wire.endTransmission();
+
+  delay(500);
+
+  Serial.println("rosso OFF");
   Wire.beginTransmission(0x20);
   Wire.write((byte)0b11111111);
   Wire.endTransmission();
