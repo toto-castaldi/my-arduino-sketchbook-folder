@@ -13,14 +13,20 @@ int PIN_G_BUTTON = 3;
 int PIN_B_BUTTON = 4;
 int PIN_R_BUTTON = 5;
 
-enum gameStates { 
+enum gameStates {
+                  LOBBY, 
                   SEQUENCE_CREATE_UPDATE,
                   SEQUENCE_PRESENTING,
                   PLAYER_WAITING,
                   GAME_OVER
                 };
 
-
+enum buttons {
+              BUTTON_YELLOW,
+              BUTTON_GREEN,
+              BUTTON_BLUE,
+              BUTTON_RED
+            };
 
 int tones[] = {261, 277, 294, 311, 330, 349, 370, 392, 415, 440};
 //            mid C  C#   D    D#   E    F    F#   G    G#   A
@@ -32,6 +38,8 @@ int gameSequence[100];  //100 is the maximum level *TODO: remove*
                         //3 BLUE
                         //4 RED
 gameStates gameState;
+
+buttons lobbyLed;
 
 int presentingIndex;
 int playerPlayingIndex;
@@ -64,56 +72,34 @@ void setup() {
 }
 
 void loop() {
-  if (digitalRead(PIN_Y_BUTTON)) {
-    if (yBR) {
-      yBR = false;
-      yB = true;
-      Serial.println("Y pressed");  
-    } else {
-      yB = false;
-    }
-  } else { 
-    yBR = true;
-    yB = false;
-  }
-  if (digitalRead(PIN_G_BUTTON)) {
-    if (gBR) {
-      gBR = false;
-      gB = true;
-      Serial.println("G pressed");
-    } else {
-      gB = false;
-    }
-  } else { 
-    gBR = true;
-    gB = false;
-  }
-  if (digitalRead(PIN_B_BUTTON)) {
-    if (bBR) {
-      bBR = false;
-      bB = true;
-      Serial.println("B pressed");
-    } else {
-      bB = false;
-    }
-  } else { 
-    bBR = true;
-    bB = false;
-  }
-  if (digitalRead(PIN_R_BUTTON)) {
-    if (rBR) {
-      rBR = false;
-      rB = true;
-      Serial.println("R pressed");
-    } else {
-      rB = false;
-    }
-  } else { 
-    rBR = true;
-    rB = false;
-  }
-
   switch (gameState) {
+    case LOBBY:
+      if (playingPassed()) {
+        if (lobbyLed == BUTTON_YELLOW) lobbyLed = BUTTON_GREEN;
+        else if (lobbyLed == BUTTON_GREEN) lobbyLed = BUTTON_RED;
+        else if (lobbyLed == BUTTON_RED) lobbyLed = BUTTON_BLUE;
+        else if (lobbyLed == BUTTON_BLUE) lobbyLed = BUTTON_YELLOW;
+        switch (lobbyLed) {
+          case BUTTON_YELLOW:
+              yON(false);
+            break;
+          case BUTTON_GREEN:
+              gON(false);
+            break;
+          case BUTTON_BLUE:
+              bON(false);
+            break;
+          case BUTTON_RED:
+              rON(false);
+            break;
+        }
+      }
+      readPlayingButtons();
+      if (yB || gB || bB || rB) {
+        delay(1000);
+        changeGameState(SEQUENCE_CREATE_UPDATE);
+      }
+    break;
     case SEQUENCE_CREATE_UPDATE:
       Serial.print("level ");
       Serial.println(level);
@@ -166,6 +152,7 @@ void loop() {
       }
       break;
       case PLAYER_WAITING:
+        readPlayingButtons();
         if (playingPassed() || yB || gB || bB || rB) {
           stopLeds();
           if (gameSequence[playerPlayingIndex] == 0) {
@@ -173,8 +160,7 @@ void loop() {
             delay(500);
             level ++;
             changeGameState(SEQUENCE_CREATE_UPDATE);
-          } else {
-            
+          } else {    
             if (yB) {
               if (gameSequence[playerPlayingIndex] == 1) {
                 Serial.print(playerPlayingIndex);
@@ -221,9 +207,56 @@ void loop() {
       break;
       case GAME_OVER:
         gameOver();
-        changeGameState(SEQUENCE_CREATE_UPDATE);
+        changeGameState(LOBBY);
         reset();
       break;
+  }
+}
+
+void readPlayingButtons() {
+  if (digitalRead(PIN_Y_BUTTON)) {
+    if (yBR) {
+      yBR = false;
+      yB = true;
+    } else {
+      yB = false;
+    }
+  } else { 
+    yBR = true;
+    yB = false;
+  }
+  if (digitalRead(PIN_G_BUTTON)) {
+    if (gBR) {
+      gBR = false;
+      gB = true;
+    } else {
+      gB = false;
+    }
+  } else { 
+    gBR = true;
+    gB = false;
+  }
+  if (digitalRead(PIN_B_BUTTON)) {
+    if (bBR) {
+      bBR = false;
+      bB = true;
+    } else {
+      bB = false;
+    }
+  } else { 
+    bBR = true;
+    bB = false;
+  }
+  if (digitalRead(PIN_R_BUTTON)) {
+    if (rBR) {
+      rBR = false;
+      rB = true;
+    } else {
+      rB = false;
+    }
+  } else { 
+    rBR = true;
+    rB = false;
   }
 }
 
@@ -248,9 +281,10 @@ void reset() {
   presentingIndex = -1;
   playerPlayingIndex = 0;
   level = 1;
-  gameState = SEQUENCE_CREATE_UPDATE;
+  gameState = LOBBY;
   yB, gB, bB, rB = false;
   yBR, gBR, bBR, rBR = true;
+  lobbyLed = BUTTON_YELLOW;
   pauseStart();
   playingStart();
 }
