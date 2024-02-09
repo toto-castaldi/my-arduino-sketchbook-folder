@@ -1,14 +1,25 @@
+#include <Wire.h>
+
+//prototypes
 void yON(bool sound = true);
 void gON(bool sound = true);
 void bON(bool sound = true);
 void rON(bool sound = true);
-#include <Wire.h>
 
+//pins
 int PIN_SPEAKER = 12;
-int yellowButtonPin = 2;
-int greenButtonPin = 3;
-int blueButtonPin = 4;
-int redButtonPin = 5;
+int PIN_Y_BUTTON = 2;
+int PIN_G_BUTTON = 3;
+int PIN_B_BUTTON = 4;
+int PIN_R_BUTTON = 5;
+
+enum gameStates { 
+                  SEQUENCE_CREATING,
+                  SEQUENCE_PRESENTING,
+                  PLAYER_WAITING,
+                  GAME_OVER
+                };
+
 
 
 int tones[] = {261, 277, 294, 311, 330, 349, 370, 392, 415, 440};
@@ -20,9 +31,7 @@ int gameSequence[100];  //100 is the maximum level *TODO: remove*
                         //2 GREEN
                         //3 BLUE
                         //4 RED
-int gameState;      // 0 SEQ CREATING
-                    // 1 SEQ PRESENTING
-                    // 3 PLAYER WAIT
+gameStates gameState;
 
 int presentingIndex;
 int playerPlayingIndex;
@@ -35,10 +44,12 @@ unsigned long timerPause;
 
 void setup() {
   Wire.begin();
-  pinMode(yellowButtonPin, INPUT);
-  pinMode(greenButtonPin, INPUT);
-  pinMode(blueButtonPin, INPUT);
-  pinMode(redButtonPin, INPUT);
+
+  pinMode(PIN_Y_BUTTON, INPUT);
+  pinMode(PIN_G_BUTTON, INPUT);
+  pinMode(PIN_B_BUTTON, INPUT);
+  pinMode(PIN_R_BUTTON, INPUT);
+
   Serial.begin(9600);
 
   randomSeed(analogRead(0));
@@ -48,11 +59,10 @@ void setup() {
   delay(1000);
 
   Serial.println("setup OK");
-
 }
 
 void loop() {
-  if (digitalRead(yellowButtonPin)) {
+  if (digitalRead(PIN_Y_BUTTON)) {
     if (yBR) {
       yBR = false;
       yB = true;
@@ -64,7 +74,7 @@ void loop() {
     yBR = true;
     yB = false;
   }
-  if (digitalRead(greenButtonPin)) {
+  if (digitalRead(PIN_G_BUTTON)) {
     if (gBR) {
       gBR = false;
       gB = true;
@@ -76,7 +86,7 @@ void loop() {
     gBR = true;
     gB = false;
   }
-  if (digitalRead(blueButtonPin)) {
+  if (digitalRead(PIN_B_BUTTON)) {
     if (bBR) {
       bBR = false;
       bB = true;
@@ -88,7 +98,7 @@ void loop() {
     bBR = true;
     bB = false;
   }
-  if (digitalRead(redButtonPin)) {
+  if (digitalRead(PIN_R_BUTTON)) {
     if (rBR) {
       rBR = false;
       rB = true;
@@ -102,7 +112,7 @@ void loop() {
   }
 
   switch (gameState) {
-    case 0:
+    case SEQUENCE_CREATING:
       Serial.print("level ");
       Serial.println(level);
       for (int n = level - 1; n < sizeof(gameSequence)/sizeof(int); n++) {
@@ -112,10 +122,10 @@ void loop() {
           gameSequence[n] = 0; //clear prev sequence
         }
       }
-      changeGameState(1);
+      changeGameState(SEQUENCE_PRESENTING);
       presentingIndex = 0;
       break;
-    case 1:
+    case SEQUENCE_PRESENTING:
       if (gameSequence[presentingIndex] > 0) {
         if (playingPassed() && pausePassed()) {
           switch (gameSequence[presentingIndex]) {
@@ -145,17 +155,17 @@ void loop() {
           }
         }  
       } else {
-        changeGameState(3);
+        changeGameState(PLAYER_WAITING);
         playerPlayingIndex = 0;
       }
       break;
-      case 3:
+      case PLAYER_WAITING:
         if (playingPassed() || yB || gB || bB || rB) {
           stopLeds();
           if (gameSequence[playerPlayingIndex] == 0) {
             Serial.println("New Level");
             level ++;
-            changeGameState(0);
+            changeGameState(SEQUENCE_CREATING);
           } else {
             
             if (yB) {
@@ -166,7 +176,7 @@ void loop() {
                 playerPlayingIndex ++;
               } else {
                 Serial.println("Y KO");
-                changeGameState(4);
+                changeGameState(GAME_OVER);
               }
             } else if (gB) {
               if (gameSequence[playerPlayingIndex] == 2) {
@@ -176,7 +186,7 @@ void loop() {
                 playerPlayingIndex ++;
               } else {
                 Serial.println("G KO");
-                changeGameState(4);
+                changeGameState(GAME_OVER);
               }
             } else if (bB) {
               if (gameSequence[playerPlayingIndex] == 3) {
@@ -186,7 +196,7 @@ void loop() {
                 playerPlayingIndex ++;
               } else {
                 Serial.println("B KO");
-                changeGameState(4);
+                changeGameState(GAME_OVER);
               }
             } else if (rB) {
               if (gameSequence[playerPlayingIndex] == 4) {
@@ -196,39 +206,33 @@ void loop() {
                 playerPlayingIndex ++;
               } else {
                 Serial.println("R KO");
-                changeGameState(4);
+                changeGameState(GAME_OVER);
               }
             }
           }
         }
       break;
-      case 4:
+      case GAME_OVER:
         gameOver();
-        changeGameState(0);
+        changeGameState(SEQUENCE_CREATING);
         reset();
       break;
   }
 }
 
 bool playingPassed() {
-  bool res = millis() - timerPlaying >= 500;
-  //if (res) Serial.println("playing PASSED");
-  return res;
+  return millis() - timerPlaying >= 500;
 }
 
 bool pausePassed() {
-  bool res = millis() - timerPause >= 400;
-  //if (res) Serial.println("pause PASSED");
-  return res;
+  return millis() - timerPause >= 400;
 }
 
 void pauseStart() {
-  //Serial.println("pause START");
   timerPause = millis();
 }
 
 void playingStart() {
-  //Serial.println("playing START");
   timerPlaying = millis();
 }
 
@@ -236,12 +240,7 @@ void reset() {
   presentingIndex = 0;
   playerPlayingIndex = 0;
   level = 1;
-  /*
-  for (int i = 0; i < level; i++) {
-    gameSequence[i] = 1;
-  }
-  */
-
+  gameState = SEQUENCE_CREATING;
   yB, gB, bB, rB = false;
   yBR, gBR, bBR, rBR = true;
   pauseStart();
@@ -249,7 +248,7 @@ void reset() {
 }
 
 
-void changeGameState(int newState) {
+void changeGameState(gameStates newState) {
   Serial.print("from ");
   Serial.print(gameState);
   Serial.print(" to ");
