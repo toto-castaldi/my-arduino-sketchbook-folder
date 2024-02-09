@@ -74,7 +74,10 @@ void loop() {
       }
       readPlayingButtons();
       if (yB || gB || bB || rB) {
-        delay(1000);
+        allOn();
+        delay(1500);
+        stopLeds();
+        delay(500);
         changeGameState(SEQUENCE_CREATE_UPDATE);
       }
     break;
@@ -344,12 +347,19 @@ void ledOn(byte led, int soundIndex){
   playingStart();
 }
 
-void playerTimeOutEffect() {
+void allOn() {
   Wire.beginTransmission(0x20);
   Wire.write((byte)0b11110000);
   Wire.endTransmission();
+}
+
+void playerTimeOutEffect() {
+  allOn();
   tone(PIN_SPEAKER, tones[4]);
-  playingStart();
+}
+
+void startMatchEffect() {
+  allOn();
 }
 
 void yON(bool sound) {
