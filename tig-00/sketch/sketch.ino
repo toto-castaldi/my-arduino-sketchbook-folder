@@ -14,7 +14,7 @@ int PIN_B_BUTTON = 4;
 int PIN_R_BUTTON = 5;
 
 enum gameStates { 
-                  SEQUENCE_CREATING,
+                  SEQUENCE_CREATE_UPDATE,
                   SEQUENCE_PRESENTING,
                   PLAYER_WAITING,
                   GAME_OVER
@@ -38,6 +38,8 @@ int playerPlayingIndex;
 
 bool yB, gB, bB, rB;
 bool yBR, gBR, bBR, rBR;
+
+bool needWait;
 
 unsigned long timerPlaying;
 unsigned long timerPause;
@@ -112,7 +114,7 @@ void loop() {
   }
 
   switch (gameState) {
-    case SEQUENCE_CREATING:
+    case SEQUENCE_CREATE_UPDATE:
       Serial.print("level ");
       Serial.println(level);
       for (int n = level - 1; n < sizeof(gameSequence)/sizeof(int); n++) {
@@ -123,40 +125,44 @@ void loop() {
         }
       }
       changeGameState(SEQUENCE_PRESENTING);
-      presentingIndex = 0;
+      presentingIndex = -1;
       break;
     case SEQUENCE_PRESENTING:
-      if (gameSequence[presentingIndex] > 0) {
-        if (playingPassed() && pausePassed()) {
-          switch (gameSequence[presentingIndex]) {
-            case 1:
-                Serial.println("Y");
-                yON();
-                presentingIndex ++;
-              break;
-            case 2:
-                Serial.println("G");
-                presentingIndex ++;
-                gON();
-              break;
-            case 3:
-                Serial.println("B");
-                presentingIndex ++;
-                bON();
-              break;
-            case 4:
-                Serial.println("R");
-                presentingIndex ++;
-                rON();
-              break;
+      if (playingPassed() && !needWait) {
+        if (pausePassed()) {
+          presentingIndex ++;
+          if (gameSequence[presentingIndex] > 0) {
+            switch (gameSequence[presentingIndex]) {
+              case 1:
+                  Serial.println("Y");
+                  yON();
+                  needWait = true;
+                break;
+              case 2:
+                  Serial.println("G");
+                  needWait = true;
+                  gON();
+                break;
+              case 3:
+                  Serial.println("B");
+                  needWait = true;
+                  bON();
+                break;
+              case 4:
+                  Serial.println("R");
+                  needWait = true;
+                  rON();
+                break;
+            }
+          } else {
+            changeGameState(PLAYER_WAITING);
+            playerPlayingIndex = 0;    
           }
-          if (playingPassed()) {
-            pauseStart();
-          }
-        }  
-      } else {
-        changeGameState(PLAYER_WAITING);
-        playerPlayingIndex = 0;
+        }
+      } else if (needWait && playingPassed()) {
+        pauseStart();
+        stopLeds();
+        needWait = false;
       }
       break;
       case PLAYER_WAITING:
@@ -164,8 +170,9 @@ void loop() {
           stopLeds();
           if (gameSequence[playerPlayingIndex] == 0) {
             Serial.println("New Level");
+            delay(500);
             level ++;
-            changeGameState(SEQUENCE_CREATING);
+            changeGameState(SEQUENCE_CREATE_UPDATE);
           } else {
             
             if (yB) {
@@ -214,7 +221,7 @@ void loop() {
       break;
       case GAME_OVER:
         gameOver();
-        changeGameState(SEQUENCE_CREATING);
+        changeGameState(SEQUENCE_CREATE_UPDATE);
         reset();
       break;
   }
@@ -225,7 +232,7 @@ bool playingPassed() {
 }
 
 bool pausePassed() {
-  return millis() - timerPause >= 400;
+  return millis() - timerPause >= 300;
 }
 
 void pauseStart() {
@@ -237,10 +244,11 @@ void playingStart() {
 }
 
 void reset() {
-  presentingIndex = 0;
+  needWait = false;
+  presentingIndex = -1;
   playerPlayingIndex = 0;
   level = 1;
-  gameState = SEQUENCE_CREATING;
+  gameState = SEQUENCE_CREATE_UPDATE;
   yB, gB, bB, rB = false;
   yBR, gBR, bBR, rBR = true;
   pauseStart();
