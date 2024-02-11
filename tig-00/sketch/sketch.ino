@@ -1,17 +1,12 @@
 #include <Wire.h>
 
-//prototypes
-void yON(bool sound = true);
-void gON(bool sound = true);
-void bON(bool sound = true);
-void rON(bool sound = true);
-
-//pins
 int PIN_SPEAKER = 12;
-int PIN_Y_BUTTON = 2;
-int PIN_G_BUTTON = 3;
-int PIN_B_BUTTON = 4;
-int PIN_R_BUTTON = 5;
+
+typedef struct { 
+  int pin;
+  int tone;
+  byte ledSignal;
+} button;
 
 enum gameStates {
                   LOBBY, 
@@ -21,21 +16,21 @@ enum gameStates {
                   GAME_OVER
                 };
 
-enum buttons {
-              BUTTON_YELLOW,
-              BUTTON_GREEN,
-              BUTTON_BLUE,
-              BUTTON_RED,
-              BUTTON_NO //null ????
-            };
+
+const button bs[] {
+    {2, 261, (byte)0b11111110}, //Y
+    {3, 277, (byte)0b11111101}, //G
+    {4, 294, (byte)0b11111011}, //B
+    {5, 311, (byte)0b11110111}  //RED
+};
 
 int tones[] = {261, 277, 294, 311, 330, 349, 370, 392, 415, 440};
 //            mid C  C#   D    D#   E    F    F#   G    G#   A
 int level;
-buttons gameSequence[100];  //100 is the maximum level *TODO: remove*
+int gameSequence[100];  //100 is the maximum level *TODO: remove*
 gameStates gameState;
 
-buttons animationButton;
+int animationButton;
 
 int presentingIndex;
 int playerPlayingIndex;
@@ -48,12 +43,12 @@ bool needWait;
 unsigned long timerPlaying, timerPause, timerPlayerWaiting;
 
 void setup() {
+
   Wire.begin();
 
-  pinMode(PIN_Y_BUTTON, INPUT);
-  pinMode(PIN_G_BUTTON, INPUT);
-  pinMode(PIN_B_BUTTON, INPUT);
-  pinMode(PIN_R_BUTTON, INPUT);
+  for(int i = 0; i < sizeof(bs)/sizeof(button); ++i) {
+    pinMode(bs[i].pin, INPUT);
+  }
 
   Serial.begin(9600);
 
@@ -90,7 +85,7 @@ void loop() {
         if (n < level) {
           gameSequence[n] = randomButton();
         } else {
-          gameSequence[n] = BUTTON_NO; //clear prev sequence
+          gameSequence[n] = -1; //clear prev sequence
         }
       }
       changeGameState(SEQUENCE_PRESENTING);
@@ -100,29 +95,10 @@ void loop() {
       if (playingPassed() && !needWait) {
         if (pausePassed()) {
           presentingIndex ++;
-          if (gameSequence[presentingIndex] != BUTTON_NO) {
-            switch (gameSequence[presentingIndex]) {
-              case BUTTON_YELLOW:
-                  Serial.println("Y");
-                  yON();
-                  needWait = true;
-                break;
-              case BUTTON_GREEN:
-                  Serial.println("G");
-                  needWait = true;
-                  gON();
-                break;
-              case BUTTON_BLUE:
-                  Serial.println("B");
-                  needWait = true;
-                  bON();
-                break;
-              case BUTTON_RED:
-                  Serial.println("R");
-                  needWait = true;
-                  rON();
-                break;
-            }
+          int currentButton = gameSequence[presentingIndex];
+          if (currentButton != -1) {
+            ledOn(currentButton, true);
+            needWait = true;
           } else {
             changeGameState(PLAYER_WAITING);
             playerWaitingStart();
@@ -145,51 +121,51 @@ void loop() {
           readPlayingButtons();
           if (playingPassed() || yB || gB || bB || rB) {
             stopLeds();
-            if (gameSequence[playerPlayingIndex] == BUTTON_NO) {
+            if (gameSequence[playerPlayingIndex] == -1) {
               Serial.println("New Level");
               delay(500);
               level ++;
               changeGameState(SEQUENCE_CREATE_UPDATE);
             } else {    
               if (yB) {
-                if (gameSequence[playerPlayingIndex] == BUTTON_YELLOW) {
+                if (gameSequence[playerPlayingIndex] == 0) {
                   Serial.print(playerPlayingIndex);
                   Serial.println(" - Y OK");
                   playerWaitingStart();
-                  yON();
+                  ledOn(0,true);
                   playerPlayingIndex ++;
                 } else {
                   Serial.println("Y KO");
                   changeGameState(GAME_OVER);
                 }
               } else if (gB) {
-                if (gameSequence[playerPlayingIndex] == BUTTON_GREEN) {
+                if (gameSequence[playerPlayingIndex] == 1) {
                   Serial.print(playerPlayingIndex);
                   Serial.println(" - G OK");
                   playerWaitingStart();
-                  gON();
+                  ledOn(1,true);
                   playerPlayingIndex ++;
                 } else {
                   Serial.println("G KO");
                   changeGameState(GAME_OVER);
                 }
               } else if (bB) {
-                if (gameSequence[playerPlayingIndex] == BUTTON_BLUE) {
+                if (gameSequence[playerPlayingIndex] == 2) {
                   Serial.print(playerPlayingIndex);
                   Serial.println(" - B OK");
                   playerWaitingStart();
-                  bON();
+                  ledOn(2,true);
                   playerPlayingIndex ++;
                 } else {
                   Serial.println("B KO");
                   changeGameState(GAME_OVER);
                 }
               } else if (rB) {
-                if (gameSequence[playerPlayingIndex] == BUTTON_RED) {
+                if (gameSequence[playerPlayingIndex] == 3) {
                   Serial.print(playerPlayingIndex);
                   Serial.println(" - R OK");
                   playerWaitingStart();
-                  rON();
+                  ledOn(3,true);
                   playerPlayingIndex ++;
                 } else {
                   Serial.println("R KO");
@@ -208,16 +184,12 @@ void loop() {
   }
 }
 
-buttons randomButton() {
-  int r = random(0, 4) + 1;
-  if (r == 1) return BUTTON_YELLOW;
-  if (r == 2) return BUTTON_GREEN;
-  if (r == 3) return BUTTON_BLUE;
-  if (r == 4) return BUTTON_RED;
+int randomButton() {
+  return (int) random(0, 4);
 }
 
 void readPlayingButtons() {
-  if (digitalRead(PIN_Y_BUTTON)) {
+  if (digitalRead(bs[0].pin)) {
     if (yBR) {
       yBR = false;
       yB = true;
@@ -228,7 +200,7 @@ void readPlayingButtons() {
     yBR = true;
     yB = false;
   }
-  if (digitalRead(PIN_G_BUTTON)) {
+  if (digitalRead(bs[1].pin)) {
     if (gBR) {
       gBR = false;
       gB = true;
@@ -239,7 +211,7 @@ void readPlayingButtons() {
     gBR = true;
     gB = false;
   }
-  if (digitalRead(PIN_B_BUTTON)) {
+  if (digitalRead(bs[2].pin)) {
     if (bBR) {
       bBR = false;
       bB = true;
@@ -250,7 +222,7 @@ void readPlayingButtons() {
     bBR = true;
     bB = false;
   }
-  if (digitalRead(PIN_R_BUTTON)) {
+  if (digitalRead(bs[3].pin)) {
     if (rBR) {
       rBR = false;
       rB = true;
@@ -264,24 +236,9 @@ void readPlayingButtons() {
 }
 
 void rotateAnimationButton() {
-  if (animationButton == BUTTON_YELLOW) animationButton = BUTTON_GREEN;
-  else if (animationButton == BUTTON_GREEN) animationButton = BUTTON_RED;
-  else if (animationButton == BUTTON_RED) animationButton = BUTTON_BLUE;
-  else if (animationButton == BUTTON_BLUE) animationButton = BUTTON_YELLOW;
-  switch (animationButton) {
-    case BUTTON_YELLOW:
-        yON(false);
-      break;
-    case BUTTON_GREEN:
-        gON(false);
-      break;
-    case BUTTON_BLUE:
-        bON(false);
-      break;
-    case BUTTON_RED:
-        rON(false);
-      break;
-  }
+  animationButton ++;
+  if (animationButton > 3) animationButton = 0;
+  ledOn(animationButton, false);
 }
 
 int penalty (int base) {
@@ -325,7 +282,7 @@ void reset() {
   gameState = LOBBY;
   yB, gB, bB, rB = false;
   yBR, gBR, bBR, rBR = true;
-  animationButton = BUTTON_YELLOW;
+  animationButton = 0;
 }
 
 
@@ -337,12 +294,13 @@ void changeGameState(gameStates newState) {
   gameState = newState;
 }
 
-void ledOn(byte led, int soundIndex){
+void ledOn(int ledIndex, bool sound){
+  button b = bs[ledIndex];
   Wire.beginTransmission(0x20);
-  Wire.write(led);
+  Wire.write(b.ledSignal);
   Wire.endTransmission();
-  if (soundIndex > -1) {
-    tone(PIN_SPEAKER, tones[soundIndex]);
+  if (sound) {
+    tone(PIN_SPEAKER, b.tone);
   }
   playingStart();
 }
@@ -360,22 +318,6 @@ void playerTimeOutEffect() {
 
 void startMatchEffect() {
   allOn();
-}
-
-void yON(bool sound) {
-  if (sound) ledOn((byte)0b11111110,1); else ledOn((byte)0b11111110,-1);
-}
-
-void gON(bool sound) {
-  if (sound) ledOn((byte)0b11111101,2); else ledOn((byte)0b11111101,-1);
-}
-
-void bON(bool sound) {
-  if (sound) ledOn((byte)0b11111011,3); else ledOn((byte)0b11111011,-1);
-}
-
-void rON(bool sound) {
-  if (sound) ledOn((byte)0b11110111,4); else ledOn((byte)0b11110111,-1);
 }
 
 void stopLeds() {
