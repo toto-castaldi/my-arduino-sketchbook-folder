@@ -21,8 +21,12 @@ All text above, and the splash screen must be included in any redistribution
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+// #undef SSD1306_128_32
+// #define SSD1306_128_64
+#define SSD1306_LCDHEIGHT 64
+
 // If using software SPI (the default case):
-#define OLED_MOSI   9
+#define OLED_MOSI   9 //DATA
 #define OLED_CLK   10
 #define OLED_DC    11
 #define OLED_CS    12
@@ -345,7 +349,7 @@ void testscrolltext(void) {
   display.setTextColor(WHITE);
   display.setCursor(10,0);
   display.clearDisplay();
-  display.println("toto");
+  display.println("Livello 1");
   display.display();
  
   display.startscrollright(0x00, 0x0F);

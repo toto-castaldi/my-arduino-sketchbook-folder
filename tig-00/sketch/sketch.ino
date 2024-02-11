@@ -1,4 +1,6 @@
 #include <Wire.h>
+#include "LiquidCrystal_I2C.h" // Library for LCD
+
 
 int PIN_SPEAKER = 12;
 
@@ -42,6 +44,8 @@ bool needWait;
 
 unsigned long timerPlaying, timerPause, timerPlayerWaiting;
 
+LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2); // Change to (0x27,20,4) for 20x4 LCD.
+
 void setup() {
 
   Wire.begin();
@@ -59,9 +63,16 @@ void setup() {
   delay(1000);
 
   Serial.println("setup OK");
+
+  lcd.init();
+  lcd.backlight();
+
+  lcd.setCursor(2, 0); // Set the cursor on the third column and first row.
+  lcd.print("Ciao !"); // Print the string "Hello World!"
 }
 
 void loop() {
+  char disp_text [16] = "Livello   ";
   switch (gameState) {
     case LOBBY:
       if (playingPassed()) {
@@ -81,6 +92,26 @@ void loop() {
       Serial.print(level);
       Serial.print(" - ");
       Serial.println(500 - penalty(500) + 100);
+
+      if (level == 5)
+      {
+        lcd.setCursor(2, 1); 
+        lcd.print("AH, un genio!"); 
+      }
+      else
+      {
+        lcd.setCursor(2, 1); 
+        lcd.clear();
+      }
+
+
+      lcd.setCursor(2, 0); 
+
+      sprintf(disp_text + 10, "%02d", level);
+      lcd.print(disp_text); 
+
+
+
       for (int n = level - 1; n < 100; n++) { //100 !!!
         if (n < level) {
           gameSequence[n] = randomButton();
