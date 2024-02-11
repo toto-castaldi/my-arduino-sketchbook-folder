@@ -219,8 +219,7 @@ void readPlayingButtons() {
 }
 
 void rotateAnimationButton() {
-  animationButton ++;
-  if (animationButton > 3) animationButton = 0;
+  if (++animationButton > 3) animationButton = 0;
   ledOn(animationButton, false);
 }
 
