@@ -219,8 +219,9 @@ void readPlayingButtons() {
 }
 
 void rotateAnimationButton() {
+  int transTable[4] = {0,1,3,2};
   if (++animationButton > 3) animationButton = 0;
-  ledOn(animationButton, false);
+  ledOn(transTable[animationButton], false);
 }
 
 int penalty (int base) {
@@ -309,8 +310,7 @@ void stopLeds() {
 }
 
 void gameOver() {
-  int melody[] = {
-  262, 196,196, 220, 196,0, 247, 262};
+  int melody[] = { 262, 196, 196, 220, 196,0, 247, 262};
 
   // note durations: 4 = quarter note, 8 = eighth note, etc.:
   int noteDurations[] = {4, 8, 8, 4,4,4,4,4 };
