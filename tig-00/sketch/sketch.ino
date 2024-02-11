@@ -17,7 +17,7 @@ enum gameStates {
                 };
 
 
-const button bs[] {
+const button buttons[] {
     {2, 261, (byte)0b11111110}, //Y
     {3, 277, (byte)0b11111101}, //G
     {4, 294, (byte)0b11111011}, //B
@@ -35,7 +35,7 @@ int animationButton;
 int presentingIndex;
 int playerPlayingIndex;
 
-bool yB, gB, bB, rB;
+int buttonsState;
 bool yBR, gBR, bBR, rBR;
 
 bool needWait;
@@ -46,8 +46,8 @@ void setup() {
 
   Wire.begin();
 
-  for(int i = 0; i < sizeof(bs)/sizeof(button); ++i) {
-    pinMode(bs[i].pin, INPUT);
+  for(int i = 0; i < sizeof(buttons)/sizeof(button); ++i) {
+    pinMode(buttons[i].pin, INPUT);
   }
 
   Serial.begin(9600);
@@ -68,7 +68,7 @@ void loop() {
         rotateAnimationButton();
       }
       readPlayingButtons();
-      if (yB || gB || bB || rB) {
+      if (buttonsState) {
         allOn();
         delay(1500);
         stopLeds();
@@ -119,58 +119,37 @@ void loop() {
           changeGameState(GAME_OVER);
         } else {
           readPlayingButtons();
-          if (playingPassed() || yB || gB || bB || rB) {
+          if (playingPassed() || buttonsState) {
             stopLeds();
             if (gameSequence[playerPlayingIndex] == -1) {
               Serial.println("New Level");
               delay(500);
               level ++;
               changeGameState(SEQUENCE_CREATE_UPDATE);
-            } else {    
-              if (yB) {
-                if (gameSequence[playerPlayingIndex] == 0) {
-                  Serial.print(playerPlayingIndex);
-                  Serial.println(" - Y OK");
-                  playerWaitingStart();
-                  ledOn(0,true);
-                  playerPlayingIndex ++;
-                } else {
-                  Serial.println("Y KO");
-                  changeGameState(GAME_OVER);
-                }
-              } else if (gB) {
-                if (gameSequence[playerPlayingIndex] == 1) {
-                  Serial.print(playerPlayingIndex);
-                  Serial.println(" - G OK");
-                  playerWaitingStart();
-                  ledOn(1,true);
-                  playerPlayingIndex ++;
-                } else {
-                  Serial.println("G KO");
-                  changeGameState(GAME_OVER);
-                }
-              } else if (bB) {
-                if (gameSequence[playerPlayingIndex] == 2) {
-                  Serial.print(playerPlayingIndex);
-                  Serial.println(" - B OK");
-                  playerWaitingStart();
-                  ledOn(2,true);
-                  playerPlayingIndex ++;
-                } else {
-                  Serial.println("B KO");
-                  changeGameState(GAME_OVER);
-                }
-              } else if (rB) {
-                if (gameSequence[playerPlayingIndex] == 3) {
-                  Serial.print(playerPlayingIndex);
-                  Serial.println(" - R OK");
-                  playerWaitingStart();
-                  ledOn(3,true);
-                  playerPlayingIndex ++;
-                } else {
-                  Serial.println("R KO");
-                  changeGameState(GAME_OVER);
-                }
+            } else {
+              bool buttonPressedFound = false;
+              int len = sizeof(buttons)/sizeof(button);
+              int i = 0;
+              while (!buttonPressedFound && i < len) {
+                if (isButtonPressed(i)) {
+                  if (gameSequence[playerPlayingIndex] == i) {
+                    Serial.print(playerPlayingIndex);
+                    Serial.print(" - ");
+                    Serial.print(i);
+                    Serial.println(" - OK");
+                    playerWaitingStart();
+                    ledOn(i,true);
+                    playerPlayingIndex ++;
+                    buttonPressedFound = true;
+                  } else {
+                    Serial.print(playerPlayingIndex);
+                    Serial.print(" - ");
+                    Serial.print(i);
+                    Serial.println(" - KO");
+                    changeGameState(GAME_OVER);
+                  }
+                }  
+                i ++;
               }
             }
           }
@@ -188,50 +167,54 @@ int randomButton() {
   return (int) random(0, 4);
 }
 
+bool isButtonPressed(int button) {
+  return bitRead(buttonsState, button) == 1;
+}
+
 void readPlayingButtons() {
-  if (digitalRead(bs[0].pin)) {
+  if (digitalRead(buttons[0].pin)) {
     if (yBR) {
       yBR = false;
-      yB = true;
+      buttonsState = bitSet(buttonsState, 0);
     } else {
-      yB = false;
+      buttonsState = bitClear(buttonsState, 0);
     }
   } else { 
     yBR = true;
-    yB = false;
+    buttonsState = bitClear(buttonsState, 0);
   }
-  if (digitalRead(bs[1].pin)) {
+  if (digitalRead(buttons[1].pin)) {
     if (gBR) {
       gBR = false;
-      gB = true;
+      buttonsState = bitSet(buttonsState, 1);
     } else {
-      gB = false;
+      buttonsState = bitClear(buttonsState, 1);
     }
   } else { 
     gBR = true;
-    gB = false;
+    buttonsState = bitClear(buttonsState, 1);
   }
-  if (digitalRead(bs[2].pin)) {
+  if (digitalRead(buttons[2].pin)) {
     if (bBR) {
       bBR = false;
-      bB = true;
+      buttonsState = bitSet(buttonsState, 2);
     } else {
-      bB = false;
+      buttonsState = bitClear(buttonsState, 2);
     }
   } else { 
     bBR = true;
-    bB = false;
+    buttonsState = bitClear(buttonsState, 2);
   }
-  if (digitalRead(bs[3].pin)) {
+  if (digitalRead(buttons[3].pin)) {
     if (rBR) {
       rBR = false;
-      rB = true;
+      buttonsState = bitSet(buttonsState, 3);
     } else {
-      rB = false;
+      buttonsState = bitClear(buttonsState, 3);
     }
   } else { 
     rBR = true;
-    rB = false;
+    buttonsState = bitClear(buttonsState, 3);
   }
 }
 
@@ -280,7 +263,6 @@ void reset() {
   playerPlayingIndex = 0;
   level = 1;
   gameState = LOBBY;
-  yB, gB, bB, rB = false;
   yBR, gBR, bBR, rBR = true;
   animationButton = 0;
 }
@@ -295,7 +277,7 @@ void changeGameState(gameStates newState) {
 }
 
 void ledOn(int ledIndex, bool sound){
-  button b = bs[ledIndex];
+  button b = buttons[ledIndex];
   Wire.beginTransmission(0x20);
   Wire.write(b.ledSignal);
   Wire.endTransmission();
