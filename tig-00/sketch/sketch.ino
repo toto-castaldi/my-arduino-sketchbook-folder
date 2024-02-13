@@ -44,7 +44,10 @@ bool needWait;
 
 unsigned long timerPlaying, timerPause, timerPlayerWaiting;
 
-LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2); // Change to (0x27,20,4) for 20x4 LCD.
+LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
+
+char displayText [16] = " Level          ";
+
 
 void setup() {
 
@@ -67,14 +70,12 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
-  lcd.setCursor(2, 0); // Set the cursor on the third column and first row.
-  lcd.print("Ciao !"); // Print the string "Hello World!"
+  changeGameState(LOBBY);
 }
 
 void loop() {
-  char disp_text [16] = "Livello   ";
   switch (gameState) {
-    case LOBBY:
+    case LOBBY:   
       if (playingPassed()) {
         rotateAnimationButton();
       }
@@ -92,25 +93,6 @@ void loop() {
       Serial.print(level);
       Serial.print(" - ");
       Serial.println(500 - penalty(500) + 100);
-
-      if (level == 5)
-      {
-        lcd.setCursor(2, 1); 
-        lcd.print("AH, un genio!"); 
-      }
-      else
-      {
-        lcd.setCursor(2, 1); 
-        lcd.clear();
-      }
-
-
-      lcd.setCursor(2, 0); 
-
-      sprintf(disp_text + 10, "%02d", level);
-      lcd.print(disp_text); 
-
-
 
       for (int n = level - 1; n < 100; n++) { //100 !!!
         if (n < level) {
@@ -188,7 +170,7 @@ void loop() {
       break;
       case GAME_OVER:
         gameOver();
-        changeGameState(LOBBY);
+        changeGameState(LOBBY);   
         reset();
       break;
   }
@@ -305,6 +287,26 @@ void changeGameState(gameStates newState) {
   Serial.print(" to ");
   Serial.println(newState);
   gameState = newState;
+  switch (gameState) {
+    case LOBBY:
+      lcd.clear(); 
+      lcd.setCursor(0, 0);
+      lcd.print("     TIG 00     ");
+      lcd.setCursor(0, 1);
+      lcd.print(" Press a button ");
+    break;
+    case SEQUENCE_CREATE_UPDATE:
+      sprintf(displayText + 10, "%02d", level);
+      lcd.clear();
+      lcd.setCursor(2, 0);
+      lcd.print(displayText); 
+    break;
+    case GAME_OVER:
+      lcd.clear();
+      lcd.setCursor(0, 0); 
+      lcd.print("  Game OVER !!  ");
+    break;
+  }
 }
 
 void ledOn(int ledIndex, bool sound){
