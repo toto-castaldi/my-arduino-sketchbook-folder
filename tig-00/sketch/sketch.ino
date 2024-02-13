@@ -1,5 +1,6 @@
 #include <Wire.h>
-#include "LiquidCrystal_I2C.h" // Library for LCD
+#include "LiquidCrystal_I2C.h"
+#include <EEPROM.h>
 
 
 int PIN_SPEAKER = 12;
@@ -46,7 +47,7 @@ unsigned long timerPlaying, timerPause, timerPlayerWaiting;
 
 LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
 
-char displayText [16] = " Level          ";
+int record;
 
 
 void setup() {
@@ -74,7 +75,7 @@ void setup() {
 void loop() {
   switch (gameState) {
     case LOBBY:
-      if (random(0,50000) == 0) {
+      if (random(0,200000) == 0) {
         allOn();
         tone(PIN_SPEAKER, tones[random(0,sizeof(tones)/sizeof(int))]);
         delay(500);
@@ -242,6 +243,7 @@ void changeGameState(gameStates newState) {
   gameState = newState;
   switch (gameState) {
     case LOBBY:
+      record = EEPROM.read(0);
       level = 1;
       lcd.clear(); 
       lcd.setCursor(0, 0);
@@ -254,15 +256,25 @@ void changeGameState(gameStates newState) {
       needWait = false;
     break;
     case SEQUENCE_CREATE_UPDATE:
-      sprintf(displayText + 10, "%02d", level);
       lcd.clear();
-      lcd.setCursor(2, 0);
-      lcd.print(displayText); 
+      lcd.setCursor(4, 0);
+      lcd.print("Level");
+      lcd.setCursor(11, 0);
+      lcd.print(level);
+      lcd.setCursor(0, 1);
+      lcd.print("RECORD : ");
+      lcd.setCursor(10, 1);
+      lcd.print(record);
+      lcd.setCursor(0, 1);
     break;
     case PLAYER_WAITING:
       playerPlayingIndex = 0;
     break;
     case GAME_OVER:
+      if (level > record) {
+        record = level;
+        EEPROM.write(0,record);
+      }
       lcd.clear();
       lcd.setCursor(0, 0); 
       lcd.print("  Game OVER !!  ");
