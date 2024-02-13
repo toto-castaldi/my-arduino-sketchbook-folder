@@ -61,8 +61,6 @@ void setup() {
 
   randomSeed(analogRead(0));
 
-  reset();
-
   delay(1000);
 
   Serial.println("setup OK");
@@ -75,11 +73,19 @@ void setup() {
 
 void loop() {
   switch (gameState) {
-    case LOBBY:   
-      if (playingPassed()) {
-        rotateAnimationButton();
+    case LOBBY:
+      if (random(0,50000) == 0) {
+        allOn();
+        tone(PIN_SPEAKER, tones[random(0,sizeof(tones)/sizeof(int))]);
+        delay(500);
+        noTone(PIN_SPEAKER);
+        stopLeds();
+      } else {  
+        if (playingPassed()) {
+          rotateAnimation();
+        }
       }
-      readPlayingButtons();
+      readButtons();
       if (buttonPressStates) {
         allOn();
         delay(1500);
@@ -102,7 +108,6 @@ void loop() {
         }
       }
       changeGameState(SEQUENCE_PRESENTING);
-      presentingIndex = -1;
       break;
     case SEQUENCE_PRESENTING:
       if (playingPassed() && !needWait) {
@@ -115,7 +120,6 @@ void loop() {
           } else {
             changeGameState(PLAYER_WAITING);
             playerWaitingStart();
-            playerPlayingIndex = 0;    
           }
         }
       } else if (needWait && playingPassed()) {
@@ -131,7 +135,7 @@ void loop() {
           delay(1000);
           changeGameState(GAME_OVER);
         } else {
-          readPlayingButtons();
+          readButtons();
           if (playingPassed() || buttonPressStates) {
             stopLeds();
             if (gameSequence[playerPlayingIndex] == -1) {
@@ -146,19 +150,11 @@ void loop() {
               while (!buttonPressedFound && i < len) {
                 if (isButtonPressed(i)) {
                   if (gameSequence[playerPlayingIndex] == i) {
-                    Serial.print(playerPlayingIndex);
-                    Serial.print(" - ");
-                    Serial.print(i);
-                    Serial.println(" - OK");
                     playerWaitingStart();
                     ledOn(i,true);
                     playerPlayingIndex ++;
                     buttonPressedFound = true;
                   } else {
-                    Serial.print(playerPlayingIndex);
-                    Serial.print(" - ");
-                    Serial.print(i);
-                    Serial.println(" - KO");
                     changeGameState(GAME_OVER);
                   }
                 }  
@@ -170,8 +166,7 @@ void loop() {
       break;
       case GAME_OVER:
         gameOver();
-        changeGameState(LOBBY);   
-        reset();
+        changeGameState(LOBBY);
       break;
   }
 }
@@ -184,7 +179,7 @@ bool isButtonPressed(int button) {
   return bitRead(buttonPressStates, button) == 1;
 }
 
-void readPlayingButtons() {
+void readButtons() {
   for (int i = 0; i < sizeof(buttons)/sizeof(button); i++) {
     if (digitalRead(buttons[i].pin)) {
       if (bitRead(buttonReadyStates, i)) {
@@ -200,7 +195,7 @@ void readPlayingButtons() {
   }
 }
 
-void rotateAnimationButton() {
+void rotateAnimation() {
   int transTable[4] = {0,1,3,2};
   if (++animationButton > 3) animationButton = 0;
   ledOn(transTable[animationButton], false);
@@ -239,16 +234,6 @@ void playerWaitingStart() {
   timerPlayerWaiting = millis();
 }
 
-void reset() {
-  needWait = false;
-  presentingIndex = -1;
-  playerPlayingIndex = 0;
-  level = 1;
-  gameState = LOBBY;
-  animationButton = 0;
-}
-
-
 void changeGameState(gameStates newState) {
   Serial.print("from ");
   Serial.print(gameState);
@@ -257,17 +242,25 @@ void changeGameState(gameStates newState) {
   gameState = newState;
   switch (gameState) {
     case LOBBY:
+      level = 1;
       lcd.clear(); 
       lcd.setCursor(0, 0);
       lcd.print("     TIG 00     ");
       lcd.setCursor(0, 1);
       lcd.print(" Press a button ");
     break;
+    case SEQUENCE_PRESENTING:
+      presentingIndex = -1;
+      needWait = false;
+    break;
     case SEQUENCE_CREATE_UPDATE:
       sprintf(displayText + 10, "%02d", level);
       lcd.clear();
       lcd.setCursor(2, 0);
       lcd.print(displayText); 
+    break;
+    case PLAYER_WAITING:
+      playerPlayingIndex = 0;
     break;
     case GAME_OVER:
       lcd.clear();
@@ -320,7 +313,7 @@ void gameOver() {
     int noteDuration = 1000/noteDurations[thisNote];
     tone(PIN_SPEAKER, melody[thisNote],noteDuration);
     if (melody[thisNote] > 0) {
-      rotateAnimationButton();
+      rotateAnimation();
     }
     int pauseBetweenNotes = noteDuration * 1.30;
     delay(pauseBetweenNotes);
