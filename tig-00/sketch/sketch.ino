@@ -37,8 +37,8 @@ int animationButton;
 int presentingIndex;
 int playerPlayingIndex;
 
-int buttonsState;
-bool yBR, gBR, bBR, rBR;
+int buttonPressStates;
+int buttonReadyStates;
 
 bool needWait;
 
@@ -80,7 +80,7 @@ void loop() {
         rotateAnimationButton();
       }
       readPlayingButtons();
-      if (buttonsState) {
+      if (buttonPressStates) {
         allOn();
         delay(1500);
         stopLeds();
@@ -132,7 +132,7 @@ void loop() {
           changeGameState(GAME_OVER);
         } else {
           readPlayingButtons();
-          if (playingPassed() || buttonsState) {
+          if (playingPassed() || buttonPressStates) {
             stopLeds();
             if (gameSequence[playerPlayingIndex] == -1) {
               Serial.println("New Level");
@@ -181,53 +181,22 @@ int randomButton() {
 }
 
 bool isButtonPressed(int button) {
-  return bitRead(buttonsState, button) == 1;
+  return bitRead(buttonPressStates, button) == 1;
 }
 
 void readPlayingButtons() {
-  if (digitalRead(buttons[0].pin)) {
-    if (yBR) {
-      yBR = false;
-      buttonsState = bitSet(buttonsState, 0);
+  for (int i = 0; i < sizeof(buttons)/sizeof(button); i++) {
+    if (digitalRead(buttons[i].pin)) {
+      if (bitRead(buttonReadyStates, i)) {
+        bitClear(buttonReadyStates, i);
+        buttonPressStates = bitSet(buttonPressStates, i);
+      } else {
+        buttonPressStates = bitClear(buttonPressStates, i);
+      }
     } else {
-      buttonsState = bitClear(buttonsState, 0);
+      bitSet(buttonReadyStates, i);
+      buttonPressStates = bitClear(buttonPressStates, i);
     }
-  } else { 
-    yBR = true;
-    buttonsState = bitClear(buttonsState, 0);
-  }
-  if (digitalRead(buttons[1].pin)) {
-    if (gBR) {
-      gBR = false;
-      buttonsState = bitSet(buttonsState, 1);
-    } else {
-      buttonsState = bitClear(buttonsState, 1);
-    }
-  } else { 
-    gBR = true;
-    buttonsState = bitClear(buttonsState, 1);
-  }
-  if (digitalRead(buttons[2].pin)) {
-    if (bBR) {
-      bBR = false;
-      buttonsState = bitSet(buttonsState, 2);
-    } else {
-      buttonsState = bitClear(buttonsState, 2);
-    }
-  } else { 
-    bBR = true;
-    buttonsState = bitClear(buttonsState, 2);
-  }
-  if (digitalRead(buttons[3].pin)) {
-    if (rBR) {
-      rBR = false;
-      buttonsState = bitSet(buttonsState, 3);
-    } else {
-      buttonsState = bitClear(buttonsState, 3);
-    }
-  } else { 
-    rBR = true;
-    buttonsState = bitClear(buttonsState, 3);
   }
 }
 
@@ -276,7 +245,6 @@ void reset() {
   playerPlayingIndex = 0;
   level = 1;
   gameState = LOBBY;
-  yBR, gBR, bBR, rBR = true;
   animationButton = 0;
 }
 
