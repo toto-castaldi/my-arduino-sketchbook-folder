@@ -16,7 +16,9 @@ enum gameStates {
                   SEQUENCE_CREATE_UPDATE,
                   SEQUENCE_PRESENTING,
                   PLAYER_WAITING,
-                  GAME_OVER
+                  GAME_OVER,
+                  OPTIONS,
+                  OPTIONS_ASK_RESET
                 };
 
 
@@ -73,9 +75,32 @@ void setup() {
 }
 
 void loop() {
+  readButtons();
+  
+  if (areAllButtonPressed() && gameState != OPTIONS) {
+    changeGameState(OPTIONS);
+  }
+
   switch (gameState) {
+    case OPTIONS:
+      if (isButtonPressed(3)) { //exit
+        changeGameState(LOBBY);
+      }
+      if (isButtonPressed(0)) { //reset ?
+        changeGameState(OPTIONS_ASK_RESET);
+      }
+    break;
+    case OPTIONS_ASK_RESET:
+      if (isButtonPressed(2)) {
+        record = 0;
+        EEPROM.write(0,record);
+        changeGameState(OPTIONS);
+      } else if (isButtonPressed(3)) {
+        changeGameState(OPTIONS);
+      }
+    break;
     case LOBBY:
-      if (random(0,200000) == 0) {
+      if (random(0,400000) == 0) {
         allOn();
         tone(PIN_SPEAKER, tones[random(0,sizeof(tones)/sizeof(int))]);
         delay(500);
@@ -86,7 +111,6 @@ void loop() {
           rotateAnimation();
         }
       }
-      readButtons();
       if (buttonPressStates) {
         allOn();
         delay(1500);
@@ -136,7 +160,6 @@ void loop() {
           delay(1000);
           changeGameState(GAME_OVER);
         } else {
-          readButtons();
           if (playingPassed() || buttonPressStates) {
             stopLeds();
             if (gameSequence[playerPlayingIndex] == -1) {
@@ -178,6 +201,14 @@ int randomButton() {
 
 bool isButtonPressed(int button) {
   return bitRead(buttonPressStates, button) == 1;
+}
+
+bool areAllButtonPressed() {
+  int count = 0;
+  for (int i = 0; i < sizeof(buttons)/sizeof(button); i++) {
+    if (digitalRead(buttons[i].pin)) count ++;
+  }
+  return count == sizeof(buttons)/sizeof(button);
 }
 
 void readButtons() {
@@ -242,6 +273,20 @@ void changeGameState(gameStates newState) {
   Serial.println(newState);
   gameState = newState;
   switch (gameState) {
+    case OPTIONS_ASK_RESET:
+      lcd.clear(); 
+      lcd.setCursor(0, 0);
+      lcd.print("    CONFIRM     ");
+      lcd.setCursor(0, 1);
+      lcd.print("B-YES R-NO");
+    break;
+    case OPTIONS:
+      lcd.clear(); 
+      lcd.setCursor(0, 0);
+      lcd.print("    OPTIONS     ");
+      lcd.setCursor(0, 1);
+      lcd.print("Y-RESET R-EXIT");
+    break;
     case LOBBY:
       record = EEPROM.read(0);
       level = 1;
