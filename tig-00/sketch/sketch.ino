@@ -1,9 +1,9 @@
-#include <Wire.h>
-#include "LiquidCrystal_I2C.h"
 #include <EEPROM.h>
+#include <U8x8lib.h>
+#include <Wire.h>
 
-
-int PIN_SPEAKER = 12;
+#define PIN_SPEAKER 12
+#define NO_BUTTON 255
 
 typedef struct { 
   int pin;
@@ -12,7 +12,7 @@ typedef struct {
 } button;
 
 enum gameStates {
-                  LOBBY, 
+                  LOBBY,  
                   SEQUENCE_CREATE_UPDATE,
                   SEQUENCE_PRESENTING,
                   PLAYER_WAITING,
@@ -31,29 +31,28 @@ const button buttons[] {
 
 int tones[] = {261, 277, 294, 311, 330, 349, 370, 392, 415, 440};
 //            mid C  C#   D    D#   E    F    F#   G    G#   A
-int level;
-int gameSequence[100];  //100 is the maximum level *TODO: remove*
+byte level;
+byte gameSequence[25];  //100 is the maximum level *TODO: remove*
 gameStates gameState;
 
-int animationButton;
+byte animationButton;
 
-int presentingIndex;
-int playerPlayingIndex;
+byte presentingIndex;
+byte playerPlayingIndex;
 
-int buttonPressStates;
-int buttonReadyStates;
+byte buttonPressStates;
+byte buttonReadyStates;
 
 bool needWait;
 
 unsigned long timerPlaying, timerPause, timerPlayerWaiting;
 
-LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
+U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE); 	      
 
-int record;
+byte record;
 
 
 void setup() {
-
   Wire.begin();
 
   for(int i = 0; i < sizeof(buttons)/sizeof(button); ++i) {
@@ -64,17 +63,20 @@ void setup() {
 
   randomSeed(analogRead(0));
 
-  delay(1000);
+  u8x8.begin();
+  u8x8.setPowerSave(0);
+
+  delay(100);
 
   Serial.println("setup OK");
 
-  lcd.init();
-  lcd.backlight();
-
   changeGameState(LOBBY);
+
+  delay(100);
 }
 
 void loop() {
+  
   readButtons();
   
   if (areAllButtonPressed() && gameState != OPTIONS) {
@@ -89,7 +91,7 @@ void loop() {
       if (isButtonPressed(0)) { //reset ?
         changeGameState(OPTIONS_ASK_RESET);
       }
-    break;
+      break;
     case OPTIONS_ASK_RESET:
       if (isButtonPressed(2)) {
         record = 0;
@@ -98,7 +100,7 @@ void loop() {
       } else if (isButtonPressed(3)) {
         changeGameState(OPTIONS);
       }
-    break;
+      break;
     case LOBBY:
       if (random(0,400000) == 0) {
         allOn();
@@ -118,18 +120,18 @@ void loop() {
         delay(500);
         changeGameState(SEQUENCE_CREATE_UPDATE);
       }
-    break;
+      break;
     case SEQUENCE_CREATE_UPDATE:
       Serial.print("level ");
       Serial.print(level);
       Serial.print(" - ");
       Serial.println(500 - penalty(500) + 100);
 
-      for (int n = level - 1; n < 100; n++) { //100 !!!
+      for (int n = level - 1; n < sizeof(gameSequence)/sizeof(byte); n++) {
         if (n < level) {
           gameSequence[n] = randomButton();
         } else {
-          gameSequence[n] = -1; //clear prev sequence
+          gameSequence[n] = NO_BUTTON; //clear prev sequence
         }
       }
       changeGameState(SEQUENCE_PRESENTING);
@@ -139,7 +141,7 @@ void loop() {
         if (pausePassed()) {
           presentingIndex ++;
           int currentButton = gameSequence[presentingIndex];
-          if (currentButton != -1) {
+          if (currentButton != NO_BUTTON) {
             ledOn(currentButton, true);
             needWait = true;
           } else {
@@ -153,53 +155,54 @@ void loop() {
         needWait = false;
       }
       break;
-      case PLAYER_WAITING:
-        if (playerWaitingTimeOut()) {
-          Serial.println("Player TIMEOUT");
-          playerTimeOutEffect();
-          delay(1000);
-          changeGameState(GAME_OVER);
-        } else {
-          if (playingPassed() || buttonPressStates) {
-            stopLeds();
-            if (gameSequence[playerPlayingIndex] == -1) {
-              Serial.println("New Level");
-              delay(500);
-              level ++;
-              changeGameState(SEQUENCE_CREATE_UPDATE);
-            } else {
-              bool buttonPressedFound = false;
-              int len = sizeof(buttons)/sizeof(button);
-              int i = 0;
-              while (!buttonPressedFound && i < len) {
-                if (isButtonPressed(i)) {
-                  if (gameSequence[playerPlayingIndex] == i) {
-                    playerWaitingStart();
-                    ledOn(i,true);
-                    playerPlayingIndex ++;
-                    buttonPressedFound = true;
-                  } else {
-                    changeGameState(GAME_OVER);
-                  }
-                }  
-                i ++;
-              }
+    case PLAYER_WAITING:
+      if (playerWaitingTimeOut()) {
+        Serial.println("Player TIMEOUT");
+        playerTimeOutEffect();
+        delay(1000);
+        changeGameState(GAME_OVER);
+      } else {
+        if (playingPassed() || buttonPressStates) {
+          stopLeds();
+          if (gameSequence[playerPlayingIndex] == NO_BUTTON) {
+            Serial.println("New Level");
+            delay(500);
+            level ++;
+            changeGameState(SEQUENCE_CREATE_UPDATE);
+          } else {
+            bool buttonPressedFound = false;
+            int len = sizeof(buttons)/sizeof(button);
+            int i = 0;
+            while (!buttonPressedFound && i < len) {
+              if (isButtonPressed(i)) {
+                if (gameSequence[playerPlayingIndex] == i) {
+                  playerWaitingStart();
+                  ledOn(i,true);
+                  playerPlayingIndex ++;
+                  buttonPressedFound = true;
+                } else {
+                  changeGameState(GAME_OVER);
+                }
+              }  
+              i ++;
             }
           }
         }
+      }
       break;
-      case GAME_OVER:
-        gameOver();
-        changeGameState(LOBBY);
+    case GAME_OVER:
+      Serial.println("AAAAAA");
+      gameOver();
+     changeGameState(LOBBY);
       break;
   }
 }
 
-int randomButton() {
-  return (int) random(0, 4);
+byte randomButton() {
+  return (byte) random(0, 4);
 }
 
-bool isButtonPressed(int button) {
+bool isButtonPressed(byte button) {
   return bitRead(buttonPressStates, button) == 1;
 }
 
@@ -233,11 +236,11 @@ void rotateAnimation() {
   ledOn(transTable[animationButton], false);
 }
 
-int penalty (int base) {
+byte penalty (int base) {
   double difficulty = (double)-1/((double)level * (double)level) + 0.5;
   int penalty = 0;
   if (difficulty > 0) {
-    penalty += (int) floor(difficulty * base);
+    penalty += (byte) floor(difficulty * base);
   }
   return penalty;
 }
@@ -274,56 +277,47 @@ void changeGameState(gameStates newState) {
   gameState = newState;
   switch (gameState) {
     case OPTIONS_ASK_RESET:
-      lcd.clear(); 
-      lcd.setCursor(0, 0);
-      lcd.print("    CONFIRM     ");
-      lcd.setCursor(0, 1);
-      lcd.print("B-YES R-NO");
-    break;
+      u8x8.clear();
+      u8x8.setFont(u8x8_font_chroma48medium8_r);
+      u8x8.drawString(0,0,"CONFIRM ?");
+      u8x8.drawString(0,1,"B-YES R-NO");
+      break;
     case OPTIONS:
-      lcd.clear(); 
-      lcd.setCursor(0, 0);
-      lcd.print("    OPTIONS     ");
-      lcd.setCursor(0, 1);
-      lcd.print("Y-RESET R-EXIT");
-    break;
+      u8x8.clear();
+      u8x8.setFont(u8x8_font_chroma48medium8_r);
+      u8x8.drawString(0,0,"OPTIONS");
+      u8x8.drawString(0,1,"B-YES R-NO");
+      break;
     case LOBBY:
       record = EEPROM.read(0);
       level = 1;
-      lcd.clear(); 
-      lcd.setCursor(0, 0);
-      lcd.print("     TIG 00     ");
-      lcd.setCursor(0, 1);
-      lcd.print(" Press a button ");
-    break;
+      u8x8.clear();
+      u8x8.setFont(u8x8_font_chroma48medium8_r);
+      u8x8.drawString(0,0,"TIG-00");
+      u8x8.drawString(0,1,"Press a button");
+      break;
     case SEQUENCE_PRESENTING:
       presentingIndex = -1;
       needWait = false;
-    break;
+      break;
     case SEQUENCE_CREATE_UPDATE:
-      lcd.clear();
-      lcd.setCursor(4, 0);
-      lcd.print("Level");
-      lcd.setCursor(11, 0);
-      lcd.print(level);
-      lcd.setCursor(0, 1);
-      lcd.print("RECORD : ");
-      lcd.setCursor(10, 1);
-      lcd.print(record);
-      lcd.setCursor(0, 1);
-    break;
+      u8x8.clear();
+      u8x8.setFont(u8x8_font_chroma48medium8_r);
+      u8x8.drawString(0,0,(((String) "Level  ") + level).c_str ());
+      u8x8.drawString(0,1,(((String) "Record ") + record).c_str () );
+      break;
     case PLAYER_WAITING:
       playerPlayingIndex = 0;
-    break;
+      break;
     case GAME_OVER:
       if (level > record) {
         record = level;
         EEPROM.write(0,record);
       }
-      lcd.clear();
-      lcd.setCursor(0, 0); 
-      lcd.print("  Game OVER !!  ");
-    break;
+      u8x8.clear();
+      u8x8.setFont(u8x8_font_chroma48medium8_r);
+      u8x8.drawString(0,0,"GAME OVER !");
+      break;
   }
 }
 
@@ -361,18 +355,21 @@ void stopLeds() {
 }
 
 void gameOver() {
-  int melody[] = { 262, 196, 196, 220, 196,0, 247, 262};
 
-  // note durations: 4 = quarter note, 8 = eighth note, etc.:
-  int noteDurations[] = {4, 8, 8, 4,4,4,4,4 };
+  byte melody[] = { 250, 196, 196, 220, 196,0, 247, 250};
 
- for (int thisNote = 0; thisNote < 8; thisNote++) {
-    int noteDuration = 1000/noteDurations[thisNote];
+  byte noteDurations[] = {4, 8, 8, 4, 4, 4, 4, 4 };
+
+  int noteDuration = 0;
+  int pauseBetweenNotes = 0;
+
+ for (byte thisNote = 0; thisNote < sizeof(melody)/sizeof(byte); thisNote++) {
+    noteDuration = 1000/noteDurations[thisNote];
     tone(PIN_SPEAKER, melody[thisNote],noteDuration);
     if (melody[thisNote] > 0) {
       rotateAnimation();
     }
-    int pauseBetweenNotes = noteDuration * 1.30;
+    pauseBetweenNotes = noteDuration * 1.30;
     delay(pauseBetweenNotes);
     noTone(PIN_SPEAKER);
     if (melody[thisNote] > 0) {
